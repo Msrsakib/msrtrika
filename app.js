@@ -2,17 +2,16 @@ const CLIENT_ID = '06d193a8eb8e4ecf927a49a943527239';
 const REDIRECT_URI = 'https://msrsakib.github.io/msrtrika/';
 const SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
 
-// UI Helper to show status
-function updateStatus(text) {
+// Logger Function
+function log(msg) {
     const logDiv = document.getElementById('status-log');
-    if (logDiv) {
-        logDiv.innerHTML += `> ${text}<br>`;
-        logDiv.scrollTop = logDiv.scrollHeight;
-    }
-    console.log(text);
+    const time = new Date().toLocaleTimeString().split(' ')[0];
+    logDiv.innerHTML += `<br>[${time}] > ${msg}`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+    console.log(msg);
 }
 
-// PKCE Helpers
+// PKCE Security Helpers
 const generateRandomString = (length) => {
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const values = crypto.getRandomValues(new Uint8Array(length));
@@ -30,9 +29,9 @@ const base64encode = (input) => {
         .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 };
 
-// 1. Login Function
+// 1. Auth Login
 async function login(mode) {
-    updateStatus(`Initiating ${mode} login...`);
+    log(`Starting ${mode} authentication...`);
     localStorage.setItem('auth_mode', mode);
     
     const codeVerifier = generateRandomString(64);
@@ -54,14 +53,14 @@ async function login(mode) {
     window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
-// 2. Handle Callback & Token Exchange
+// 2. Token Exchange
 async function handleCallback() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     
-    if (!code) return; // No code found, probably just landed on home page
+    if (!code) return;
 
-    updateStatus("Exchanging code for token...");
+    log("Auth code detected. Requesting Access Token...");
     const codeVerifier = localStorage.getItem('code_verifier');
     const mode = localStorage.getItem('auth_mode');
 
@@ -80,25 +79,23 @@ async function handleCallback() {
 
         const data = await response.json();
         if (data.access_token) {
-            updateStatus("Token received successfully!");
-            window.history.replaceState({}, document.title, REDIRECT_URI); // Clean URL
+            log("Access Token granted.");
+            window.history.replaceState({}, document.title, REDIRECT_URI);
             
             if (mode === 'source') {
                 await fetchSourceData(data.access_token);
             } else if (mode === 'target') {
                 await startMigration(data.access_token);
             }
-        } else {
-            updateStatus("Error: Failed to get access token.");
         }
     } catch (err) {
-        updateStatus("Callback Error: " + err.message);
+        log("ERROR: " + err.message);
     }
 }
 
-// 3. Fetch Source Playlists
+// 3. Data Fetch
 async function fetchSourceData(token) {
-    updateStatus("Loading your playlists...");
+    log("Fetching playlists from Source Account...");
     try {
         const res = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -107,8 +104,8 @@ async function fetchSourceData(token) {
         
         let fullData = [];
         for (let pl of data.items) {
-            updateStatus(`Scanning: ${pl.name}`);
-            const trackRes = await fetch(pl.tracks.href, {
+            log(`Reading: ${pl.name}`);
+            const trackRes = await fetch(`https://api.spotify.com/v1/playlists/${pl.id}/tracks`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const trackData = await trackRes.json();
@@ -117,34 +114,29 @@ async function fetchSourceData(token) {
         }
         
         localStorage.setItem('saved_playlists', JSON.stringify(fullData));
-        
-        // Show the next step UI
         document.getElementById('source-section').classList.add('hidden');
         document.getElementById('transfer-section').classList.remove('hidden');
-        document.getElementById('playlist-count').innerText = `Saved ${fullData.length} playlists. Now switch accounts!`;
-        updateStatus("Step 1 Complete! Please logout of Spotify in another tab and click Step 2.");
+        document.getElementById('playlist-count').innerText = `READY: ${fullData.length} Playlists Stored.`;
+        log("STEP 1 COMPLETE. Please logout from Spotify and click Step 2.");
     } catch (err) {
-        updateStatus("Fetch Error: " + err.message);
+        log("Fetch Error: " + err.message);
     }
 }
 
-// 4. Migration to Target ID
+// 4. Migration
 async function startMigration(token) {
     const playlists = JSON.parse(localStorage.getItem('saved_playlists'));
-    if (!playlists) {
-        updateStatus("No saved data found. Start from Step 1.");
-        return;
-    }
+    if (!playlists) return log("No data found! Restart from Step 1.");
 
     try {
         const userRes = await fetch('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const user = await userRes.json();
-        updateStatus(`Logged in as Target: ${user.display_name}`);
+        log(`Logged into Target: ${user.display_name}`);
 
         for (const pl of playlists) {
-            updateStatus(`Creating Playlist: ${pl.name}`);
+            log(`Creating Playlist: ${pl.name}`);
             const createRes = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -153,7 +145,7 @@ async function startMigration(token) {
             const newPl = await createRes.json();
             
             if (pl.tracks.length > 0) {
-                updateStatus(`Adding ${pl.tracks.length} tracks...`);
+                log(`Adding ${pl.tracks.length} tracks to ${pl.name}...`);
                 await fetch(`https://api.spotify.com/v1/playlists/${newPl.id}/tracks`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -161,12 +153,11 @@ async function startMigration(token) {
                 });
             }
         }
-        updateStatus("SUCCESS! Migration finished.");
+        log("ALL TASKS COMPLETED SUCCESSFULLY!");
         localStorage.removeItem('saved_playlists');
     } catch (err) {
-        updateStatus("Migration Error: " + err.message);
+        log("Migration Error: " + err.message);
     }
 }
 
-// Run on load
 window.onload = handleCallback;
