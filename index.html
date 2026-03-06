@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlist Migrator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .spotify-green { background-color: #1DB954; }
+        .spotify-green:hover { background-color: #1ed760; }
+    </style>
+</head>
+<body class="bg-black text-white font-sans">
+    <div class="container mx-auto px-4 py-12 max-w-xl">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-extrabold mb-4 tracking-tight">Spotify<span class="text-green-500">Mover</span></h1>
+            <p class="text-gray-400">Transfer your music between accounts seamlessly.</p>
+        </header>
+
+        <div id="source-section" class="bg-zinc-900 p-8 rounded-2xl shadow-2xl border border-zinc-800">
+            <h2 class="text-xl font-semibold mb-2">Step 1: Source Account</h2>
+            <p class="text-sm text-zinc-500 mb-6">Login to the account you want to copy music FROM.</p>
+            <button id="btn-source" onclick="login('source')" class="spotify-green text-black font-bold py-3 px-8 rounded-full w-full transition-all transform hover:scale-105">
+                Login to Source ID
+            </button>
+        </div>
+
+        <div id="transfer-section" class="hidden bg-zinc-900 p-8 rounded-2xl shadow-2xl border border-zinc-800">
+            <h2 class="text-xl font-semibold mb-2">Step 2: Transfer Data</h2>
+            <div id="stats" class="mb-6 p-4 bg-zinc-800 rounded-lg text-sm">
+                <p id="playlist-count">Playlists found: 0</p>
+            </div>
+            <button id="btn-target" onclick="login('target')" class="bg-white text-black font-bold py-3 px-8 rounded-full w-full transition-all transform hover:scale-105">
+                Login to Target ID & Start
+            </button>
+        </div>
+
+        <div id="status-log" class="mt-8 text-xs text-zinc-500 font-mono overflow-y-auto max-h-40">
+            </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
